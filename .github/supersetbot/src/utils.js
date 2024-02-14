@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,10 +17,17 @@
  * under the License.
  */
 
-import getCLI from './cli.js';
+import { parseArgsStringToArgv } from 'string-argv';
 import Context from './context.js';
+import getCLI from './cli.js';
 
-const envContext = new Context('CLI');
-const cli = getCLI(envContext);
+export async function runCommandFromGithubAction(rawCommand) {
+  const envContext = new Context('GHA');
+  const cli = getCLI(envContext);
 
-cli.parse();
+  // Make rawCommand look like argv
+  const cmd = rawCommand.trim().replace('@supersetbot', 'supersetbot');
+  const args = parseArgsStringToArgv(cmd);
+  await cli.parseAsync(['node', ...args]);
+  await envContext.onDone();
+}
