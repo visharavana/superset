@@ -16,6 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { runCommandFromGithubAction } from './utils.js';
+import { parseArgsStringToArgv } from 'string-argv';
+
+import getCLI from './cli.js';
+import Context from './context.js';
+
+async function runCommandFromGithubAction(rawCommand) {
+  const envContext = new Context('GHA');
+  const cli = getCLI(envContext);
+
+  // Make rawCommand look like argv
+  const cmd = rawCommand.trim().replace('@supersetbot', 'supersetbot');
+  const args = parseArgsStringToArgv(cmd);
+  await cli.parseAsync(['node', ...args]);
+  await envContext.onDone();
+}
 
 export { runCommandFromGithubAction };

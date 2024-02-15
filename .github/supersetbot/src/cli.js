@@ -18,6 +18,8 @@
  */
 import { Command } from 'commander';
 import * as commands from './commands.js';
+import * as docker from './docker.js';
+import * as utils from './utils.js';
 
 export default function getCLI(envContext) {
   const program = new Command();
@@ -57,6 +59,22 @@ export default function getCLI(envContext) {
         verbose: opts.verbose,
       });
       await wrapped(opts.repo, opts.issue, envContext);
+    });
+  program.command('docker')
+    .option('-p, --preset <preset>', 'Build preset', /^(lean|dev|dockerize|websocket|py310|ci)$/i, 'lean')
+    .option('-c, --context <context>', 'Build context', /^(push|pull_request|release)$/i, 'local')
+    .option('-b, --context-ref <ref>', 'Reference to the PR, release, or branch')
+    .option('-l, --platform <platform...>', 'Platforms (multiple values allowed)', /^(linux\/arm64|linux\/amd64)$/i, ['linux/amd64'])
+    .option('-d, --dry-run', 'Run the command in dry-run mode')
+    .option('-f, --force-latest', 'Force the "latest" tag on the release')
+    .option('-v, --verbose', 'Print more info')
+    .action(function () {
+      const opts = envContext.processOptions(this, ['repo']);
+      const cmd = docker.getDockerCommand(opts);
+      console.log(cmd);
+      if (!opts.dryRun) {
+        utils.runShellCommand(cmd);
+      }
     });
 
   return program;

@@ -17,17 +17,37 @@
  * under the License.
  */
 
-import { parseArgsStringToArgv } from 'string-argv';
-import Context from './context.js';
-import getCLI from './cli.js';
+import { spawn } from 'child_process';
 
-export async function runCommandFromGithubAction(rawCommand) {
-  const envContext = new Context('GHA');
-  const cli = getCLI(envContext);
+export function runShellCommand(command) {
+  return new Promise((resolve, reject) => {
+    // Split the command string into an array of arguments
+    const args = command.split(/\s+/);
+    const childProcess = spawn(args.shift(), args);
 
-  // Make rawCommand look like argv
-  const cmd = rawCommand.trim().replace('@supersetbot', 'supersetbot');
-  const args = parseArgsStringToArgv(cmd);
-  await cli.parseAsync(['node', ...args]);
-  await envContext.onDone();
+    let stdoutData = '';
+    let stderrData = '';
+
+    // Capture stdout data
+    childProcess.stdout.on('data', (data) => {
+      stdoutData += data;
+      console.log(`stdout: ${data}`);
+    });
+
+    // Capture stderr data
+    childProcess.stderr.on('data', (data) => {
+      stderrData += data;
+      console.error(`stderr: ${data}`);
+    });
+
+    // Handle process exit
+    childProcess.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+      if (code === 0) {
+        resolve(stdoutData);
+      } else {
+        reject(new Error(`Command failed with code ${code}: ${stderrData}`));
+      }
+    });
+  });
 }
