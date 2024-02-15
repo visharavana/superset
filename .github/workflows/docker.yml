@@ -48,13 +48,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      - name: install supersetbot
+        run: |
+          npm install -g supersetbot
       - name: Build Docker Image
         shell: bash
         env:
           DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
+          npm install -g supersetbot
           supersetbot docker \
             --preset ${{ matrix.build_preset }} \
             --context "$EVENT" \
