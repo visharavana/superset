@@ -76,8 +76,7 @@ jobs:
             cp /tmp/build_docker.py scripts/
             EVENT="release"
           fi
-          pip install click
-          # Make a multi-platform image
+
           supersetbot docker \
             --preset ${{ matrix.build_preset }} \
             --context "$EVENT" \

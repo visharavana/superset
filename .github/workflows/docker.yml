@@ -44,16 +44,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Setup Node Env
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Build Docker Image
         shell: bash
         env:
           DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          pip install click
-          ./scripts/build_docker.py \
-            ${{ matrix.build_preset }} \
-            ${{ github.event_name }} \
-            --build_context_ref "$RELEASE" $FORCE_LATEST \
+          supersetbot docker \
+            --preset ${{ matrix.build_preset }} \
+            --context "$EVENT" \
+            --context-ref "$RELEASE" $FORCE_LATEST \
             --platform "linux/arm64" \
             --platform "linux/amd64"
