@@ -61,19 +61,19 @@ export default function getCLI(envContext) {
       await wrapped(opts.repo, opts.issue, envContext);
     });
   program.command('docker')
-    .option('-p, --preset <preset>', 'Build preset', /^(lean|dev|dockerize|websocket|py310|ci)$/i, 'lean')
+    .option('-t, --preset', 'Build preset', /^(lean|dev|dockerize|websocket|py310|ci)$/i, 'lean')
     .option('-c, --context <context>', 'Build context', /^(push|pull_request|release)$/i, 'local')
-    .option('-b, --context-ref <ref>', 'Reference to the PR, release, or branch')
-    .option('-l, --platform <platform...>', 'Platforms (multiple values allowed)', /^(linux\/arm64|linux\/amd64)$/i, ['linux/amd64'])
+    .option('-r, --context-ref <ref>', 'Reference to the PR, release, or branch')
+    .option('-p, --platform <platform...>', 'Platforms (multiple values allowed)')
     .option('-d, --dry-run', 'Run the command in dry-run mode')
     .option('-f, --force-latest', 'Force the "latest" tag on the release')
     .option('-v, --verbose', 'Print more info')
-    .action(function () {
-      const opts = envContext.processOptions(this, ['repo']);
-      const cmd = docker.getDockerCommand(opts);
-      console.log(cmd);
+    .action(function (preset) {
+      const opts = envContext.processOptions(this, ['repo', 'platform']);
+      opts.platform = opts.platform || ['linux/arm64'];
+      const cmd = docker.getDockerCommand({ preset, ...opts });
       if (!opts.dryRun) {
-        utils.runShellCommand(cmd);
+        utils.runShellCommand(cmd, false);
       }
     });
 

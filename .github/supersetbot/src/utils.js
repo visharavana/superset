@@ -19,7 +19,7 @@
 
 import { spawn } from 'child_process';
 
-export function runShellCommand(command) {
+export function runShellCommand(command, raiseOnError = true) {
   return new Promise((resolve, reject) => {
     // Split the command string into an array of arguments
     const args = command.split(/\s+/);
@@ -42,11 +42,16 @@ export function runShellCommand(command) {
 
     // Handle process exit
     childProcess.on('close', (code) => {
-      console.log(`child process exited with code ${code}`);
       if (code === 0) {
         resolve(stdoutData);
       } else {
-        reject(new Error(`Command failed with code ${code}: ${stderrData}`));
+        const msg = `Command failed with code ${code}: ${stderrData}`;
+        if (raiseOnError) {
+          reject(new Error(msg));
+        } else {
+          console.error(msg);
+          process.exit(1);
+        }
       }
     });
   });

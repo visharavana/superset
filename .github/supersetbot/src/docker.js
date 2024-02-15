@@ -81,6 +81,7 @@ export function getDockerTags({
 export function getDockerCommand({
   preset, platform, isAuthenticated, buildContext, buildContextRef, forceLatest = false,
 }) {
+  console.log('PLATFORM', platform);
   const platforms = platform;
 
   let buildTarget = '';
@@ -122,8 +123,7 @@ export function getDockerCommand({
   const buildArg = pyVer ? `--build-arg PY_VER=${pyVer}` : '';
   const actor = process.env.GITHUB_ACTOR;
 
-  return `
-    docker buildx build \\
+  return `docker buildx build \\
       ${dockerArgs} \\
       ${tags} \\
       ${cacheFromArg} \\
