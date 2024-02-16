@@ -78,5 +78,11 @@ export default function getCLI(envContext) {
         utils.runShellCommand(cmd, false);
       }
     });
+  program.command('version')
+    .action(async () => {
+      const version = await utils.currentPackageVersion();
+      console.log(version);
+    });
+
   return program;
 }

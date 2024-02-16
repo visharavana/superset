@@ -18,6 +18,27 @@
  */
 
 import { spawn } from 'child_process';
+import { readFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+async function loadPackageJson() {
+  try {
+    const packageJsonPath = path.join(dirname, '../package.json');
+    const data = await readFile(packageJsonPath, 'utf8');
+    const packageJson = JSON.parse(data);
+    return packageJson;
+  } catch (error) {
+    console.error('Error reading package.json:', error);
+    return null;
+  }
+}
+export async function currentPackageVersion() {
+  const data = await loadPackageJson();
+  return data.version;
+}
 
 export function runShellCommand(command, raiseOnError = true) {
   return new Promise((resolve, reject) => {
