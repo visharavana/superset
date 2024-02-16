@@ -19,7 +19,6 @@
 import { Octokit } from '@octokit/rest';
 
 class Context {
-
   #octokit;
 
   constructor(source) {
@@ -47,8 +46,8 @@ class Context {
   requireOption(optionName, options) {
     const optionValue = options[optionName];
     if (optionValue === undefined || optionValue === null) {
-      this.logError(`🔴 ERROR: option [${optionName}] is required`);
-      this.hasError = true;
+      this.logError(`option [${optionName}] is required`);
+      this.exit(1);
     }
   }
 
@@ -56,11 +55,6 @@ class Context {
     optionNames.forEach((optionName) => {
       this.requireOption(optionName, options);
     });
-  }
-
-  log(msg) {
-    console.log(msg);
-    this.logs = [...this.logs, msg];
   }
 
   processOptions(command, requiredOptions) {
@@ -77,14 +71,23 @@ class Context {
       this.options.actor = process.env.GITHUB_ACTOR || 'UNKNOWN';
       this.options.repo = process.env.GITHUB_REPOSITORY;
     }
-
     return this.options;
+  }
+
+  log(msg) {
+    console.log(`🟢 SUCCESS: ${msg}`);
+    this.logs = [...this.logs, msg];
   }
 
   logError(msg) {
     this.hasErrors = true;
-    console.error(msg);
+    console.error(`🔴 ERROR: ${msg}`);
     this.errorLogs.push(msg);
+  }
+
+  exit(code = 0) {
+    this.onDone();
+    process.exit(code);
   }
 
   commandWrapper({
@@ -92,20 +95,22 @@ class Context {
   }) {
     return async (...args) => {
       let resp;
+      let hasError = false;
       try {
         resp = await func(...args);
         if (verbose) {
           console.log(resp);
         }
       } catch (error) {
+        hasError = true;
         if (errorMsg) {
-          this.logError(`🔴 ERROR: ${errorMsg}`);
+          this.logError(errorMsg);
         } else {
-          this.logError(`🔴 ERROR: ${error}`);
+          this.logError(error);
         }
       }
-      if (successMsg) {
-        this.log(`🟢 SUCCESS: ${successMsg}`);
+      if (successMsg && !hasError) {
+        this.log(successMsg);
       }
       return resp;
     };

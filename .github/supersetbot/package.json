@@ -1,6 +1,6 @@
 {
   "name": "supersetbot",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "A bot for the Superset GitHub repo",
   "type": "module",
   "main": "src/index.js",
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.23.9",
+    "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-env": "^7.23.9",
     "babel-jest": "^29.7.0",
     "eslint": "^8.56.0",

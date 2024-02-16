@@ -22,7 +22,7 @@ import { spawn } from 'child_process';
 export function runShellCommand(command, raiseOnError = true) {
   return new Promise((resolve, reject) => {
     // Split the command string into an array of arguments
-    const args = command.split(/\s+/).filter(s => !!s && s != '\\');
+    const args = command.split(/\s+/).filter((s) => !!s && s !== '\\');
     const childProcess = spawn(args.shift(), args);
     let stdoutData = '';
     let stderrData = '';
