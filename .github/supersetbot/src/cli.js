@@ -73,6 +73,7 @@ export default function getCLI(envContext) {
       const opts = envContext.processOptions(this, ['repo']);
       opts.platform = opts.platform || ['linux/arm64'];
       const cmd = docker.getDockerCommand({ preset, ...opts });
+      console.log(cmd);
       if (!opts.dryRun) {
         utils.runShellCommand(cmd, false);
       }
