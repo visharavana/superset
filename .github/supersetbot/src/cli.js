@@ -23,13 +23,13 @@ import * as utils from './utils.js';
 
 export default function getCLI(envContext) {
   const program = new Command();
+  const issueOptionParams = ['-i, --issue <issue>', 'The issue number', process.env.GITHUB_ISSUE_NUMBER];
+
   // Setting up top-level CLI options
   program
     .option('-v, --verbose', 'Output extra debugging information')
     .option('-r, --repo <repo>', 'The GitHub repo to use (ie: "apache/superset")', process.env.GITHUB_REPOSITORY)
     .option('-a, --actor <actor>', 'The actor', process.env.GITHUB_ACTOR);
-
-  const issueOptionParams = ['-i, --issue <issue>', 'The issue number', process.env.GITHUB_ISSUE_NUMBER];
 
   program.command('label <label>')
     .description('Add a label to an issue or PR')
@@ -60,6 +60,7 @@ export default function getCLI(envContext) {
       });
       await wrapped(opts.repo, opts.issue, envContext);
     });
+
   program.command('docker')
     .option('-t, --preset', 'Build preset', /^(lean|dev|dockerize|websocket|py310|ci)$/i, 'lean')
     .option('-c, --context <context>', 'Build context', /^(push|pull_request|release)$/i, 'local')
@@ -69,7 +70,7 @@ export default function getCLI(envContext) {
     .option('-f, --force-latest', 'Force the "latest" tag on the release')
     .option('-v, --verbose', 'Print more info')
     .action(function (preset) {
-      const opts = envContext.processOptions(this, ['repo', 'platform']);
+      const opts = envContext.processOptions(this, ['repo']);
       opts.platform = opts.platform || ['linux/arm64'];
       const cmd = docker.getDockerCommand({ preset, ...opts });
       if (!opts.dryRun) {

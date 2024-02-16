@@ -21,18 +21,24 @@ import { Octokit } from '@octokit/rest';
 class Context {
   constructor(source) {
     this.hasErrors = false;
-    if (!process.env.GITHUB_TOKEN) {
-      const msg = 'GITHUB_TOKEN is not set. Please set the GITHUB_TOKEN environment variable.';
-      this.logError(msg);
-    }
-    this.github = new Octokit({ auth: `token ${process.env.GITHUB_TOKEN}` });
 
     this.source = source;
     this.repo = process.env.GITHUB_REPOSITORY;
     this.options = {};
     this.errorLogs = [];
     this.logs = [];
-    this.hasError = false;
+    this._octokit = null;
+  }
+
+  get github() {
+    if (!this._octokit) {
+      if (!process.env.GITHUB_TOKEN) {
+        const msg = 'GITHUB_TOKEN is not set. Please set the GITHUB_TOKEN environment variable.';
+        this.logError(msg);
+      }
+      this._octokit = new Octokit({ auth: `token ${process.env.GITHUB_TOKEN}` });
+    }
+    return this._octokit;
   }
 
   requireOption(optionName, options) {
@@ -50,6 +56,7 @@ class Context {
   }
 
   log(msg) {
+    console.log(msg);
     this.logs = [...this.logs, msg];
   }
 

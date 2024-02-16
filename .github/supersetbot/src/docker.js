@@ -81,7 +81,6 @@ export function getDockerTags({
 export function getDockerCommand({
   preset, platform, isAuthenticated, buildContext, buildContextRef, forceLatest = false,
 }) {
-  console.log('PLATFORM', platform);
   const platforms = platform;
 
   let buildTarget = '';
