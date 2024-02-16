@@ -78,6 +78,5 @@ export default function getCLI(envContext) {
         utils.runShellCommand(cmd, false);
       }
     });
-
   return program;
 }
