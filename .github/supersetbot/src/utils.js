@@ -24,7 +24,6 @@ export function runShellCommand(command, raiseOnError = true) {
     // Split the command string into an array of arguments
     const args = command.split(/\s+/).filter(s => !!s && s != '\\');
     const childProcess = spawn(args.shift(), args);
-    console.log(args);
     let stdoutData = '';
     let stderrData = '';
 
