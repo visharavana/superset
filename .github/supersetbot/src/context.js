@@ -16,39 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Octokit } from '@octokit/rest';
+
+import { parseArgsStringToArgv } from 'string-argv';
 
 class Context {
-  #octokit;
-
   constructor(source) {
     this.hasErrors = false;
-
     this.source = source;
-    this.repo = process.env.GITHUB_REPOSITORY;
     this.options = {};
     this.errorLogs = [];
     this.logs = [];
-    this.#octokit = null;
-  }
-
-  get github() {
-    if (!this.#octokit) {
-      if (!process.env.GITHUB_TOKEN) {
-        const msg = 'GITHUB_TOKEN is not set. Please set the GITHUB_TOKEN environment variable.';
-        this.logError(msg);
-      }
-      this.#octokit = new Octokit({ auth: `token ${process.env.GITHUB_TOKEN}` });
-    }
-    return this.#octokit;
+    this.repo = null;
   }
 
   requireOption(optionName, options) {
     const optionValue = options[optionName];
     if (optionValue === undefined || optionValue === null) {
       this.logError(`option [${optionName}] is required`);
-      this.exit(1);
+      // this.exit(1);
     }
+  }
+
+  parseArgs(s) {
+    return parseArgsStringToArgv(s);
   }
 
   requireOptions(optionNames, options) {
@@ -71,18 +61,26 @@ class Context {
       this.options.actor = process.env.GITHUB_ACTOR || 'UNKNOWN';
       this.options.repo = process.env.GITHUB_REPOSITORY;
     }
+    this.repo = this.options.repo;
     return this.options;
   }
 
   log(msg) {
-    console.log(`🟢 SUCCESS: ${msg}`);
+    console.log(msg);
     this.logs = [...this.logs, msg];
+  }
+
+  logSuccess(msg) {
+    const augMsg = `🟢 SUCCESS: ${msg}`;
+    console.log(augMsg);
+    this.logs.push(augMsg);
   }
 
   logError(msg) {
     this.hasErrors = true;
-    console.error(`🔴 ERROR: ${msg}`);
-    this.errorLogs.push(msg);
+    const augMsg = `🔴 ERROR: ${msg}`;
+    console.error(augMsg);
+    this.errorLogs.push(augMsg);
   }
 
   exit(code = 0) {
@@ -91,14 +89,17 @@ class Context {
   }
 
   commandWrapper({
-    func, successMsg, errorMsg = null, verbose = false,
+    func, successMsg, errorMsg = null, verbose = false, dryRun = false,
   }) {
     return async (...args) => {
       let resp;
       let hasError = false;
+
       try {
-        resp = await func(...args);
-        if (verbose) {
+        if (!dryRun) {
+          resp = await func(...args);
+        }
+        if (verbose && resp) {
           console.log(resp);
         }
       } catch (error) {
@@ -110,7 +111,7 @@ class Context {
         }
       }
       if (successMsg && !hasError) {
-        this.log(successMsg);
+        this.logSuccess(successMsg);
       }
       return resp;
     };
@@ -126,21 +127,12 @@ class Context {
     return comment;
   }
 
-  async createComment(body) {
-    const [owner, repo] = this.repo.split('/');
-    await this.github.rest.issues.createComment({
-      owner,
-      repo,
-      body,
-      issue_number: this.issueNumber,
-    });
-  }
-
   async onDone() {
+    let msg;
     if (this.source === 'GHA') {
-      const comment = this.doneComment();
-      await this.createComment(comment);
+      msg = this.doneComment();
     }
+    return msg;
   }
 }
 

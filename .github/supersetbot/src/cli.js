@@ -17,11 +17,13 @@
  * under the License.
  */
 import { Command } from 'commander';
-import * as commands from './commands.js';
+
 import * as docker from './docker.js';
 import * as utils from './utils.js';
+import Github from './github.js';
+import Git from './git.js';
 
-export default function getCLI(envContext) {
+export default function getCLI(context) {
   const program = new Command();
   const issueOptionParams = ['-i, --issue <issue>', 'The issue number', process.env.GITHUB_ISSUE_NUMBER];
 
@@ -29,36 +31,64 @@ export default function getCLI(envContext) {
   program
     .option('-v, --verbose', 'Output extra debugging information')
     .option('-r, --repo <repo>', 'The GitHub repo to use (ie: "apache/superset")', process.env.GITHUB_REPOSITORY)
+    .option('-d, --dry-run', 'Run the command in dry-run mode')
     .option('-a, --actor <actor>', 'The actor', process.env.GITHUB_ACTOR);
 
   program.command('label <label>')
     .description('Add a label to an issue or PR')
     .option(...issueOptionParams)
     .action(async function (label) {
-      const opts = envContext.processOptions(this, ['issue', 'repo']);
-      await commands.label(opts.repo, opts.issue, label, envContext, opts.actor, opts.verbose);
+      const opts = context.processOptions(this, ['issue', 'repo']);
+      const github = new Github(context, opts.repo, opts.issue);
+      await github.label(opts.issue, label, context, opts.actor, opts.verbose, opts.dryRun);
     });
 
   program.command('unlabel <label>')
     .description('Remove a label from an issue or PR')
     .option(...issueOptionParams)
     .action(async function (label) {
-      const opts = envContext.processOptions(this, ['issue', 'repo']);
-      await commands.unlabel(opts.repo, opts.issue, label, envContext, opts.actor, opts.verbose);
+      const opts = context.processOptions(this, ['issue', 'repo']);
+      const github = new Github(context, opts.repo, opts.issue);
+      await github.unlabel(opts.issue, label, context, opts.actor, opts.verbose, opts.dryRun);
+    });
+
+  program.command('release-label <prId>')
+    .description('Figure out first release for PR and label it')
+    .action(async function (prId) {
+      const opts = context.processOptions(this, ['repo']);
+      const git = new Git(context);
+      await git.loadReleases();
+
+      const labels = await git.getReleaseLabels(parseInt(prId, 10));
+      const github = new Github(context, opts.repo, prId);
+      await github.syncLabels(labels, prId, opts.actor, opts.verbose, opts.dryRun);
+    });
+
+  program.command('on-release <release>')
+    .description('Figure out first release for PR and label it')
+    .option('-c, --include-cherries', 'Generate cherry labels point to each release where the PR has been cherried')
+    .action(async function (release) {
+      const opts = context.processOptions(this, ['repo']);
+      const git = new Git(context);
+      await git.loadReleases();
+      const prs = await git.getPRsToSync(release, opts.verbose, opts.includeCherries);
+
+      const github = new Github(context, opts.repo);
+      const promises = [];
+      prs.forEach(({ prNumber, labels }) => {
+        promises.push(github.syncLabels(labels, prNumber, opts.actor, opts.verbose, opts.dryRun));
+      });
+      await Promise.all(promises);
     });
 
   program.command('orglabel')
     .description('Add an org label based on the author')
     .option(...issueOptionParams)
     .action(async function () {
-      const opts = envContext.processOptions(this, ['issue', 'repo']);
-      const wrapped = envContext.commandWrapper({
-        func: commands.assignOrgLabel,
-        successMsg: 'added the right labels',
-        errorMsg: 'FAILED at stuff',
-        verbose: opts.verbose,
-      });
-      await wrapped(opts.repo, opts.issue, envContext);
+      const opts = context.processOptions(this, ['issue', 'repo']);
+      const github = new Github(context, opts.repo, opts.issue);
+
+      await github.assignOrgLabel(opts.issue, opts.verbose, opts.dryRun);
     });
 
   program.command('docker')
@@ -66,14 +96,13 @@ export default function getCLI(envContext) {
     .option('-c, --context <context>', 'Build context', /^(push|pull_request|release)$/i, 'local')
     .option('-r, --context-ref <ref>', 'Reference to the PR, release, or branch')
     .option('-p, --platform <platform...>', 'Platforms (multiple values allowed)')
-    .option('-d, --dry-run', 'Run the command in dry-run mode')
     .option('-f, --force-latest', 'Force the "latest" tag on the release')
     .option('-v, --verbose', 'Print more info')
     .action(function (preset) {
-      const opts = envContext.processOptions(this, ['repo']);
+      const opts = context.processOptions(this, ['repo']);
       opts.platform = opts.platform || ['linux/arm64'];
       const cmd = docker.getDockerCommand({ preset, ...opts });
-      console.log(cmd);
+      context.log(cmd);
       if (!opts.dryRun) {
         utils.runShellCommand(cmd, false);
       }
@@ -81,7 +110,7 @@ export default function getCLI(envContext) {
   program.command('version')
     .action(async () => {
       const version = await utils.currentPackageVersion();
-      console.log(version);
+      context.log(version);
     });
 
   return program;

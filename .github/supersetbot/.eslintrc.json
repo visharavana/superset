@@ -4,9 +4,9 @@
     "import/extensions": 0,
     "import/prefer-default-export": 0,
     "func-names": 0,
-    "no-console": 0
+    "no-console": 0,
+    "class-methods-use-this": 0
   },
-  "parser": "@babel/eslint-parser",
   "parserOptions": {
     "ecmaVersion": 2020,
     "sourceType": "module"
