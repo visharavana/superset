@@ -11,13 +11,16 @@ export default class Git {
     this.mainBranch = mainBranch;
     this.releases = new Map();
     this.git = simpleGit();
+    this.mainBranchGitRelease = this.mainBranchGitRelease.bind(this);
+    this.getReleaseLabels = this.getReleaseLabels.bind(this);
   }
 
   async mainBranchGitRelease() {
-    if (!this.releases.get(this.mainBranch)) {
+    const rel = this.releases.get(this.mainBranch);
+    if (!rel) {
       await this.loadRelease(this.mainBranch);
     }
-    return this.releases.get(this.mainBranch);
+    return rel;
   }
 
   async releaseTags() {
@@ -58,7 +61,7 @@ export default class Git {
     return sha.substring(0, 7);
   }
 
-  async getReleaseLabels(prNumber, verbose, includeCherries = false) {
+  async getReleaseLabels(prNumber, verbose, excludeCherries = false) {
     const labels = [];
     const main = await this.mainBranchGitRelease();
     const sha = main.prCommitMap.get(prNumber);
@@ -75,12 +78,13 @@ export default class Git {
           labels.push(`🚢 ${release.tag}`);
         }
         const shaInGitRelease = release.prCommitMap.get(prNumber);
-        if (includeCherries && shaInGitRelease && shaInGitRelease !== sha) {
+        if (!excludeCherries && shaInGitRelease && shaInGitRelease !== sha) {
           labels.push(`🍒 ${release.tag}`);
         }
       });
-      if (!firstGitReleased) {
-        labels.push('🚢 next');
+      if (labels.length >= 1) {
+        // using this emoji to show it's been labeled by the bot
+        labels.push('🏷️ bot');
       }
       return labels;
     }
@@ -92,15 +96,16 @@ export default class Git {
     return tags[tags.indexOf(release) - 1];
   }
 
-  async getPRsToSync(release, verbose = false, includeCherries = false) {
+  async getPRsToSync(release, verbose = false, excludeCherries = false) {
     const prevRelease = await this.previousRelease(release);
     const releaseRange = new GitRelease(release, this.context, prevRelease);
     await releaseRange.load();
+
     const prs = [];
     const promises = [];
     releaseRange.prCommitMap.forEach((value, prNumber) => {
       promises.push(
-        this.getReleaseLabels(prNumber, verbose, includeCherries)
+        this.getReleaseLabels(prNumber, verbose, excludeCherries)
           .then((labels) => {
             prs.push({ prNumber, labels });
           }),

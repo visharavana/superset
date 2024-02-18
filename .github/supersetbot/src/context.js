@@ -109,6 +109,7 @@ class Context {
         } else {
           this.logError(error);
         }
+        throw (error);
       }
       if (successMsg && !hasError) {
         this.logSuccess(successMsg);

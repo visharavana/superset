@@ -29,5 +29,6 @@ export const PROTECTED_LABEL_PATTERNS = [
   'protected.*',
   'released.*',
   '^v\\d+(\\.\\d+)*$',
+  '(🚢|🍒|🎯).*',
 ];
 export const COMMITTER_TEAM = 'apache/superset-committers';

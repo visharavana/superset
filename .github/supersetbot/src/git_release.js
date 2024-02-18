@@ -34,12 +34,13 @@ export default class GitRelease {
       [from] = from.split('\n');
     }
     const format = {
-      hash: '%H', // Commit hash
-      message: '%s', // Commit message
+      hash: '%H',
+      message: '%s',
     };
     const options = [`--format=${JSON.stringify(format)}`];
+    const range = `${this.from || 'first'}..${this.tag}`;
     const commits = await this.git.log({ from, to: this.tag, ...options });
-    this.context.log(`${this.tag} - fetched ${commits.all.length} commits`);
+    this.context.log(`${range} - fetched ${commits.all.length} commits`);
     const commitPrMap = new Map();
     commits.all.forEach((commit) => {
       const prNumber = this.extractPRNumber(commit.message);

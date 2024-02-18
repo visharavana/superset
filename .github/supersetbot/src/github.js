@@ -1,8 +1,13 @@
 import { Octokit } from '@octokit/rest';
+import { throttling } from '@octokit/plugin-throttling';
+
 import { ORG_LIST, PROTECTED_LABEL_PATTERNS, COMMITTER_TEAM } from './metadata.js';
 
 class Github {
-  constructor(context, issueNumber = null, token = null) {
+
+  #userInTeamCache;
+
+  constructor({ context, issueNumber = null, token = null }) {
     this.context = context;
     this.issueNumber = issueNumber;
     const githubToken = token || process.env.GITHUB_TOKEN;
@@ -10,7 +15,25 @@ class Github {
       const msg = 'GITHUB_TOKEN is not set. Please set the GITHUB_TOKEN environment variable.';
       this.context.logError(msg);
     }
-    this.octokit = new Octokit({ auth: githubToken });
+    const throttledOctokit = Octokit.plugin(throttling);
+    this.octokit = new throttledOctokit({
+      auth: githubToken,
+			throttle: {
+        id: 'supersetbot',
+        onRateLimit: (retryAfter, options, octokit, retryCount) => {
+          octokit.log.warn(`Request quota exhausted for request ${options.method} ${options.url}`);
+          if (retryCount < 3) {
+            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+            return true;
+          }
+        },
+        onSecondaryRateLimit: (retryAfter, options, octokit) => {
+          octokit.log.warn(`SecondaryRateLimit detected for request ${options.method} ${options.url}`);
+        },
+      },
+    });
+    this.syncLabels = this.syncLabels.bind(this);
+    this.#userInTeamCache = new Map();
   }
 
   unPackRepo() {
@@ -40,7 +63,7 @@ class Github {
 
   async createComment(body) {
     if (this.issueNumber) {
-      await this.oktokit.rest.issues.createComment({
+      await this.octokit.rest.issues.createComment({
         ...this.unPackRepo(),
         body,
         issue_number: this.issueNumber,
@@ -109,25 +132,26 @@ class Github {
     });
 
     if (verbose) {
-      this.context.log(`All release labels: ${labels}`);
-      this.context.log(`Existing labels on issue: ${existingLabels.map((l) => l.name)}`);
+      this.context.log(`[PR: ${prId}] - target release labels: ${labels}`);
+      this.context.log(`[PR: ${prId}] - existing labels on issue: ${existingLabels.map((l) => l.name)}`);
     }
 
-    // Extract existing labels with the given prefix
+    // Extract existing labels with the given prefixes
+    const prefixes = ['🚢', '🍒', '🎯', '🏷️'];
     const existingPrefixLabels = existingLabels
-      .filter((label) => label.name.startsWith('🚢') || label.name.startsWith('🍒'))
+      .filter((label) => prefixes.some(s => label.name.startsWith(s)))
       .map((label) => label.name);
 
     // Labels to add
     const labelsToAdd = labels.filter((label) => !existingPrefixLabels.includes(label));
     if (verbose) {
-      this.context.log(`Labels to add: ${labelsToAdd}`);
+      this.context.log(`[PR: ${prId}] - labels to add: ${labelsToAdd}`);
     }
 
     // Labels to remove
     const labelsToRemove = existingPrefixLabels.filter((label) => !labels.includes(label));
     if (verbose) {
-      this.context.log(`Labels to remove: ${labelsToRemove}`);
+      this.context.log(`[PR: ${prId}] - labels to remove: ${labelsToRemove}`);
     }
 
     // Add labels
@@ -151,6 +175,12 @@ class Github {
   }
 
   async checkIfUserInTeam(username, team, verbose = false) {
+    let isInTeam = this.#userInTeamCache.get([username, team]);
+    if (isInTeam !== undefined) {
+      console.log("CACHE HIT!!!!!")
+      return isInTeam;
+    }
+
     const [org, teamSlug] = team.split('/');
     const wrapped = this.context.commandWrapper({
       func: this.octokit.teams.getMembershipForUserInOrg,
@@ -162,7 +192,9 @@ class Github {
       team_slug: teamSlug,
       username,
     });
-    return resp?.data?.state === 'active';
+    isInTeam = resp?.data?.state === 'active'
+    this.#userInTeamCache.set([username, team], isInTeam);
+    return isInTeam;
   }
 
   static isLabelProtected(label) {

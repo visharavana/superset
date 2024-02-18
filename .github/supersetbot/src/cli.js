@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import * as docker from './docker.js';
 import * as utils from './utils.js';
@@ -25,7 +25,10 @@ import Git from './git.js';
 
 export default function getCLI(context) {
   const program = new Command();
-  const issueOptionParams = ['-i, --issue <issue>', 'The issue number', process.env.GITHUB_ISSUE_NUMBER];
+
+  // Some reusable options
+  const issueOption = new Option('-i, --issue <issue>', 'The issue number', process.env.GITHUB_ISSUE_NUMBER);
+  const excludeCherriesOption = new Option('-c, --exclude-cherries', 'Generate cherry labels point to each release where the PR has been cherried');
 
   // Setting up top-level CLI options
   program
@@ -36,57 +39,67 @@ export default function getCLI(context) {
 
   program.command('label <label>')
     .description('Add a label to an issue or PR')
-    .option(...issueOptionParams)
+    .addOption(issueOption)
     .action(async function (label) {
       const opts = context.processOptions(this, ['issue', 'repo']);
-      const github = new Github(context, opts.repo, opts.issue);
+      const github = new Github({ context, issue: opts.issue });
       await github.label(opts.issue, label, context, opts.actor, opts.verbose, opts.dryRun);
     });
 
   program.command('unlabel <label>')
     .description('Remove a label from an issue or PR')
-    .option(...issueOptionParams)
+    .addOption(issueOption)
     .action(async function (label) {
       const opts = context.processOptions(this, ['issue', 'repo']);
-      const github = new Github(context, opts.repo, opts.issue);
+      const github = new Github({ context, issueNumber: opts.issue });
       await github.unlabel(opts.issue, label, context, opts.actor, opts.verbose, opts.dryRun);
     });
 
   program.command('release-label <prId>')
     .description('Figure out first release for PR and label it')
+    .addOption(excludeCherriesOption)
     .action(async function (prId) {
       const opts = context.processOptions(this, ['repo']);
       const git = new Git(context);
       await git.loadReleases();
 
-      const labels = await git.getReleaseLabels(parseInt(prId, 10));
-      const github = new Github(context, opts.repo, prId);
-      await github.syncLabels(labels, prId, opts.actor, opts.verbose, opts.dryRun);
+      let wrapped = context.commandWrapper({
+        func: git.getReleaseLabels,
+        verbose: opts.verbose,
+      });
+      const labels = await wrapped(parseInt(prId, 10), opts.verbose, opts.excludeCherries);
+
+      const github = new Github({ context, issueNumber: opts.issue });
+      wrapped = context.commandWrapper({
+        func: github.syncLabels,
+        verbose: opts.verbose,
+      });
+      await wrapped(labels, prId, opts.actor, opts.verbose, opts.dryRun);
     });
 
   program.command('on-release <release>')
     .description('Figure out first release for PR and label it')
-    .option('-c, --include-cherries', 'Generate cherry labels point to each release where the PR has been cherried')
+    .addOption(excludeCherriesOption)
     .action(async function (release) {
       const opts = context.processOptions(this, ['repo']);
       const git = new Git(context);
       await git.loadReleases();
-      const prs = await git.getPRsToSync(release, opts.verbose, opts.includeCherries);
+      const prs = await git.getPRsToSync(release, opts.verbose, opts.excludeCherries);
 
-      const github = new Github(context, opts.repo);
-      const promises = [];
-      prs.forEach(({ prNumber, labels }) => {
-        promises.push(github.syncLabels(labels, prNumber, opts.actor, opts.verbose, opts.dryRun));
-      });
-      await Promise.all(promises);
+      const github = new Github({ context });
+      for (const { prNumber, labels } of prs) {
+        // Running sequentially to avoid rate limiting
+        console.log(`[PR: ${prNumber}] - sync labels ${labels}`);
+        await github.syncLabels(labels, prNumber, opts.actor, opts.verbose, opts.dryRun);
+      }
     });
 
   program.command('orglabel')
     .description('Add an org label based on the author')
-    .option(...issueOptionParams)
+    .addOption(issueOption)
     .action(async function () {
       const opts = context.processOptions(this, ['issue', 'repo']);
-      const github = new Github(context, opts.repo, opts.issue);
+      const github = new Github({ context, issueNumber: opts.issue });
 
       await github.assignOrgLabel(opts.issue, opts.verbose, opts.dryRun);
     });
