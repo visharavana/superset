@@ -72,7 +72,9 @@ export default class Git {
       }
 
       let firstGitReleased = null;
-      this.releases.forEach((release) => {
+      const tags = await this.releaseTags();
+      tags.forEach((tag) => {
+        const release = this.releases.get(tag);
         if (release.commitPrMap.get(sha) && !firstGitReleased && release.tag !== this.mainBranch) {
           firstGitReleased = release.tag;
           labels.push(`🚢 ${release.tag}`);
