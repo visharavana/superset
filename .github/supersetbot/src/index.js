@@ -29,8 +29,10 @@ async function runCommandFromGithubAction(rawCommand) {
   // Make rawCommand look like argv
   const cmd = rawCommand.trim().replace('@supersetbot', 'supersetbot');
   const args = context.parseArgs(cmd);
+
   await cli.parseAsync(['node', ...args]);
   const msg = await context.onDone();
+
   github.createComment(msg);
 }
 

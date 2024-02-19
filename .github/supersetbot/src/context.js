@@ -27,6 +27,10 @@ class Context {
     this.errorLogs = [];
     this.logs = [];
     this.repo = null;
+    this.optToEnvMap = {
+      issue: 'GITHUB_ISSUE_NUMBER',
+      repo: 'GITHUB_REPOSITORY',
+    };
   }
 
   requireOption(optionName, options) {
@@ -54,6 +58,13 @@ class Context {
       this.command = raw.map((s) => (s.includes(' ') ? `"${s}"` : s)).join(' ').replace('node ', '');
     }
     this.options = { ...command.opts(), ...command.parent.opts() };
+
+    // Runtime defaults for unit tests since commanders can't receive callables as default
+    Object.entries(this.optToEnvMap).forEach(([k, v]) => {
+      if (!this.options[k]) {
+        this.options[k] = process.env[v];
+      }
+    });
     this.requireOptions(requiredOptions, this.options);
     this.issueNumber = this.options.issue;
 
@@ -62,6 +73,7 @@ class Context {
       this.options.repo = process.env.GITHUB_REPOSITORY;
     }
     this.repo = this.options.repo;
+
     return this.options;
   }
 

@@ -4,50 +4,46 @@ export default class GitRelease {
   constructor(tag, context, from = null) {
     this.tag = tag;
     this.context = context;
-    this.prNumberRegex = /#(\d+)/;
-    this.commitPrMap = null;
+    this.prNumberRegex = /\(#(\d+)\)/;
+    this.shaCommitMap = null;
+    this.prIdCommitMap = null;
     this.prCommitMap = null;
     this.git = simpleGit();
     this.from = from;
   }
 
-  async load() {
-    this.commitPrMap = await this.getCommitPrMap();
-    this.prCommitMap = GitRelease.reverseMap(this.commitPrMap);
-  }
-
-  static reverseMap(map) {
-    return new Map([...map.entries()].map(([key, value]) => [value, key]));
-  }
-
   extractPRNumber(commitMessage) {
-    if (commitMessage) {
-      const match = commitMessage.match(this.prNumberRegex);
-      return match ? parseInt(match[1], 10) : null;
-    }
-    return null;
+    const match = (commitMessage || '').match(this.prNumberRegex);
+    return match ? parseInt(match[1], 10) : null;
   }
 
-  async getCommitPrMap() {
+  async load() {
     let from = this.from || await this.git.firstCommit();
     if (from.includes('\n')) {
       [from] = from.split('\n');
     }
-    const format = {
-      hash: '%H',
-      message: '%s',
-    };
-    const options = [`--format=${JSON.stringify(format)}`];
     const range = `${this.from || 'first'}..${this.tag}`;
-    const commits = await this.git.log({ from, to: this.tag, ...options });
+    const commits = await this.git.log({ from, to: this.tag });
     this.context.log(`${range} - fetched ${commits.all.length} commits`);
-    const commitPrMap = new Map();
+
+    this.shaCommitMap = new Map();
     commits.all.forEach((commit) => {
-      const prNumber = this.extractPRNumber(commit.message);
-      if (prNumber) {
-        commitPrMap.set(commit.hash, prNumber);
+      const sha = commit.hash.substring(0, 7);
+      this.shaCommitMap.set(
+        sha,
+        {
+          prId: this.extractPRNumber(commit.message),
+          message: commit.message,
+          sha,
+        },
+      );
+    });
+
+    this.prIdCommitMap = new Map();
+    this.shaCommitMap.forEach((commit, sha) => {
+      if (commit.prId) {
+        this.prIdCommitMap.set(commit.prId, commit);
       }
     });
-    return commitPrMap;
   }
 }

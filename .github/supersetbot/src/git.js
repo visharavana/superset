@@ -16,9 +16,9 @@ export default class Git {
   }
 
   async mainBranchGitRelease() {
-    const rel = this.releases.get(this.mainBranch);
+    let rel = this.releases.get(this.mainBranch);
     if (!rel) {
-      await this.loadRelease(this.mainBranch);
+      rel = await this.loadRelease(this.mainBranch);
     }
     return rel;
   }
@@ -64,8 +64,9 @@ export default class Git {
   async getReleaseLabels(prNumber, verbose, excludeCherries = false) {
     const labels = [];
     const main = await this.mainBranchGitRelease();
-    const sha = main.prCommitMap.get(prNumber);
-    if (sha) {
+    const commit = main.prIdCommitMap.get(prNumber);
+    if (commit) {
+      const { sha } = commit;
       const shortSHA = Git.shortenSHA(sha);
       if (verbose) {
         console.log(`PR ${prNumber} is ${shortSHA} on branch ${this.mainBranch}`);
@@ -75,12 +76,12 @@ export default class Git {
       const tags = await this.releaseTags();
       tags.forEach((tag) => {
         const release = this.releases.get(tag);
-        if (release.commitPrMap.get(sha) && !firstGitReleased && release.tag !== this.mainBranch) {
+        if (release.shaCommitMap.get(sha) && !firstGitReleased && release.tag !== this.mainBranch) {
           firstGitReleased = release.tag;
           labels.push(`🚢 ${release.tag}`);
         }
-        const shaInGitRelease = release.prCommitMap.get(prNumber);
-        if (!excludeCherries && shaInGitRelease && shaInGitRelease !== sha) {
+        const commitInGitRelease = release.prIdCommitMap.get(prNumber);
+        if (!excludeCherries && commitInGitRelease && commitInGitRelease.sha !== sha) {
           labels.push(`🍒 ${release.tag}`);
         }
       });
@@ -88,9 +89,8 @@ export default class Git {
         // using this emoji to show it's been labeled by the bot
         labels.push('🏷️ bot');
       }
-      return labels;
     }
-    return [];
+    return labels;
   }
 
   async previousRelease(release) {

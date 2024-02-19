@@ -4,7 +4,6 @@ import { throttling } from '@octokit/plugin-throttling';
 import { ORG_LIST, PROTECTED_LABEL_PATTERNS, COMMITTER_TEAM } from './metadata.js';
 
 class Github {
-
   #userInTeamCache;
 
   constructor({ context, issueNumber = null, token = null }) {
@@ -12,20 +11,22 @@ class Github {
     this.issueNumber = issueNumber;
     const githubToken = token || process.env.GITHUB_TOKEN;
     if (!githubToken) {
-      const msg = 'GITHUB_TOKEN is not set. Please set the GITHUB_TOKEN environment variable.';
+      const msg = 'GITHUB_TOKEN is not set';
       this.context.logError(msg);
     }
     const throttledOctokit = Octokit.plugin(throttling);
+    // eslint-disable-next-line new-cap
     this.octokit = new throttledOctokit({
       auth: githubToken,
-			throttle: {
+      throttle: {
         id: 'supersetbot',
         onRateLimit: (retryAfter, options, octokit, retryCount) => {
-          octokit.log.warn(`Request quota exhausted for request ${options.method} ${options.url}`);
-          if (retryCount < 3) {
-            octokit.log.info(`Retrying after ${retryAfter} seconds!`);
+          const howManyRetries = 10;
+          octokit.log.warn(`Retry ${retryCount} out of ${howManyRetries} - retrying in ${retryAfter} seconds!`);
+          if (retryCount < howManyRetries) {
             return true;
           }
+          return false;
         },
         onSecondaryRateLimit: (retryAfter, options, octokit) => {
           octokit.log.warn(`SecondaryRateLimit detected for request ${options.method} ${options.url}`);
@@ -118,7 +119,34 @@ class Github {
     }
   }
 
-  async syncLabels(labels, prId, actor = null, verbose = false, dryRun = false) {
+  async searchMergedPrIds(query = '', onlyUnlabeled = true, verbose = false, startPage = 0, numPages = 5) {
+    // look for PRs
+    let q = `repo:${this.context.repo} is:merged ${query}`;
+    if (onlyUnlabeled) {
+      q = `${q} -label:"🏷️ bot"`;
+    }
+    if (verbose) {
+      this.context.log(`Query: ${q}`);
+    }
+    let prIds = [];
+    for (let i = 0; i < numPages; i++) {
+      if (verbose) {
+        this.context.log(`Fetching PRs to process page ${i + 1} out of ${numPages}`);
+      }
+      const data = await this.octokit.search.issuesAndPullRequests({
+        q,
+        per_page: 100,
+        page: 0,
+      });
+      prIds = [...prIds, ...data.data.items.map((pr) => pr.number)];
+    }
+    return prIds;
+  }
+
+  async syncLabels(labels, prId, actor = null, verbose = false, dryRun = false, checkExisting = true) {
+    if (verbose) {
+      this.context.log(`[PR: ${prId}] - sync labels ${labels}`);
+    }
     let hasPerm = true;
     if (actor) {
       hasPerm = await this.checkIfUserInTeam(actor, COMMITTER_TEAM, verbose);
@@ -126,28 +154,30 @@ class Github {
     if (!hasPerm) {
       return;
     }
-    const { data: existingLabels } = await this.octokit.issues.listLabelsOnIssue({
-      ...this.unPackRepo(),
-      issue_number: prId,
-    });
+    let existingLabels = [];
+    if (checkExisting) {
+      const resp = await this.octokit.issues.listLabelsOnIssue({
+        ...this.unPackRepo(),
+        issue_number: prId,
+      });
+      existingLabels = resp.data.map((l) => l.name);
+    }
 
     if (verbose) {
       this.context.log(`[PR: ${prId}] - target release labels: ${labels}`);
-      this.context.log(`[PR: ${prId}] - existing labels on issue: ${existingLabels.map((l) => l.name)}`);
+      this.context.log(`[PR: ${prId}] - existing labels on issue: ${existingLabels}`);
     }
 
     // Extract existing labels with the given prefixes
     const prefixes = ['🚢', '🍒', '🎯', '🏷️'];
     const existingPrefixLabels = existingLabels
-      .filter((label) => prefixes.some(s => label.name.startsWith(s)))
-      .map((label) => label.name);
+      .filter((label) => prefixes.some((s) => label.startsWith(s)));
 
     // Labels to add
     const labelsToAdd = labels.filter((label) => !existingPrefixLabels.includes(label));
     if (verbose) {
       this.context.log(`[PR: ${prId}] - labels to add: ${labelsToAdd}`);
     }
-
     // Labels to remove
     const labelsToRemove = existingPrefixLabels.filter((label) => !labels.includes(label));
     if (verbose) {
@@ -177,7 +207,6 @@ class Github {
   async checkIfUserInTeam(username, team, verbose = false) {
     let isInTeam = this.#userInTeamCache.get([username, team]);
     if (isInTeam !== undefined) {
-      console.log("CACHE HIT!!!!!")
       return isInTeam;
     }
 
@@ -192,7 +221,7 @@ class Github {
       team_slug: teamSlug,
       username,
     });
-    isInTeam = resp?.data?.state === 'active'
+    isInTeam = resp?.data?.state === 'active';
     this.#userInTeamCache.set([username, team], isInTeam);
     return isInTeam;
   }
