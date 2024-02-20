@@ -91,7 +91,7 @@ export default function getCLI(context) {
         verbose: opts.verbose,
         pages: opts.pages,
       });
-      const prIdLabelMap = new Map(prs.map(pr => [pr.number, pr.labels]));
+      const prIdLabelMap = new Map(prs.map((pr) => [pr.number, pr.labels]));
       const git = new Git(context);
       await git.loadReleases();
 

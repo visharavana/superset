@@ -40,10 +40,11 @@ export default class GitRelease {
     });
 
     this.prIdCommitMap = new Map();
-    this.shaCommitMap.forEach((commit, sha) => {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const commit of this.shaCommitMap.values()) {
       if (commit.prId) {
         this.prIdCommitMap.set(commit.prId, commit);
       }
-    });
+    }
   }
 }

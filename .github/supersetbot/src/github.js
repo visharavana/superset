@@ -120,11 +120,11 @@ class Github {
   }
 
   async searchMergedPRs({
-      query = '',
-      onlyUnlabeled = true,
-      verbose = false,
-      startPage = 0,
-      pages = 5,
+    query = '',
+    onlyUnlabeled = true,
+    verbose = false,
+    startPage = 0,
+    pages = 5,
   }) {
     // look for PRs
     let q = `repo:${this.context.repo} is:merged ${query}`;
@@ -135,14 +135,15 @@ class Github {
       this.context.log(`Query: ${q}`);
     }
     let prs = [];
-    for (let i = 0; i < pages; i++) {
+    for (let i = 0; i < pages; i += 1) {
       if (verbose) {
         this.context.log(`Fetching PRs to process page ${i + 1} out of ${pages}`);
       }
+      // eslint-disable-next-line no-await-in-loop
       const data = await this.octokit.search.issuesAndPullRequests({
         q,
         per_page: 100,
-        page: i,
+        page: startPage + i,
       });
       prs = [...prs, ...data.data.items];
     }
@@ -153,12 +154,12 @@ class Github {
   }
 
   async syncLabels({
-      labels,
-      prId,
-      actor = null,
-      verbose = false,
-      dryRun = false,
-      existingLabels = null,
+    labels,
+    prId,
+    actor = null,
+    verbose = false,
+    dryRun = false,
+    existingLabels = null,
   }) {
     if (verbose) {
       this.context.log(`[PR: ${prId}] - sync labels ${labels}`);
