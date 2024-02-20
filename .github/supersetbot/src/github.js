@@ -144,7 +144,6 @@ class Github {
         per_page: 100,
         page: i,
       });
-      console.log(data.data.items[0]);
       prs = [...prs, ...data.data.items];
     }
     if (verbose) {
@@ -153,7 +152,14 @@ class Github {
     return prs;
   }
 
-  async syncLabels({labels, prId, actor = null, verbose = false, dryRun = false, checkExisting = true}) {
+  async syncLabels({
+      labels,
+      prId,
+      actor = null,
+      verbose = false,
+      dryRun = false,
+      existingLabels = null,
+  }) {
     if (verbose) {
       this.context.log(`[PR: ${prId}] - sync labels ${labels}`);
     }
@@ -164,13 +170,14 @@ class Github {
     if (!hasPerm) {
       return;
     }
-    let existingLabels = [];
-    if (checkExisting) {
+    let targetLabels = existingLabels;
+    if (targetLabels === null) {
+      // No labels have been passed as an array, so checking against GitHub
       const resp = await this.octokit.issues.listLabelsOnIssue({
         ...this.unPackRepo(),
         issue_number: prId,
       });
-      existingLabels = resp.data.map((l) => l.name);
+      targetLabels = resp.data.map((l) => l.name);
     }
 
     if (verbose) {

@@ -81,12 +81,11 @@ export default function getCLI(context) {
     .description('Given a set of PRs, auto-release label them')
     .option('-s, --search <search>', 'extra search string to append using the GitHub mini-language')
     .option('-p, --pages <pages>', 'the number of pages (100 per page) to fetch and process', 10)
-    .option('-c, --check', 'Check existing labels and remove any wrong ones')
     .action(async function () {
       const opts = context.processOptions(this, ['repo']);
 
       const github = new Github({ context, issueNumber: opts.issue });
-      const prs = await github.searchMergedPrIds({
+      const prs = await github.searchMergedPRs({
         query: opts.search,
         onlyUnlabeled: true,
         verbose: opts.verbose,
@@ -98,18 +97,18 @@ export default function getCLI(context) {
 
       const prsPromises = prs.map(async (pr) => {
         const labels = await git.getReleaseLabels(pr.number, opts.verbose);
-        return { prNumber, labels };
+        return { prId: pr.number, labels };
       });
-      const prs = await Promise.all(prsPromises);
+      const prsTargetLabel = await Promise.all(prsPromises);
       // eslint-disable-next-line no-restricted-syntax
-      for (const { prId, labels } of prs) {
+      for (const { prId, labels } of prsTargetLabel) {
         // Running sequentially to avoid rate limiting
         // eslint-disable-next-line no-await-in-loop
         await github.syncLabels({
           labels,
           existingLabels: prIdLabelMap.get(prId),
           prId,
-          ...opts.actor,
+          ...opts,
         });
       }
     });
