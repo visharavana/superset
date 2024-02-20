@@ -80,25 +80,37 @@ export default function getCLI(context) {
   program.command('release-label-prs')
     .description('Given a set of PRs, auto-release label them')
     .option('-s, --search <search>', 'extra search string to append using the GitHub mini-language')
+    .option('-p, --pages <pages>', 'the number of pages (100 per page) to fetch and process', 10)
     .option('-c, --check', 'Check existing labels and remove any wrong ones')
     .action(async function () {
       const opts = context.processOptions(this, ['repo']);
 
       const github = new Github({ context, issueNumber: opts.issue });
-      const prIds = await github.searchMergedPrIds(opts.search, true, opts.verbose);
+      const prs = await github.searchMergedPrIds({
+        query: opts.search,
+        onlyUnlabeled: true,
+        verbose: opts.verbose,
+        pages: opts.pages,
+      });
+      const prIdLabelMap = new Map(prs.map(pr => [pr.number, pr.labels]));
       const git = new Git(context);
       await git.loadReleases();
 
-      const prsPromises = prIds.map(async (prNumber) => {
-        const labels = await git.getReleaseLabels(prNumber, opts.verbose);
+      const prsPromises = prs.map(async (pr) => {
+        const labels = await git.getReleaseLabels(pr.number, opts.verbose);
         return { prNumber, labels };
       });
       const prs = await Promise.all(prsPromises);
       // eslint-disable-next-line no-restricted-syntax
-      for (const { prNumber, labels } of prs) {
+      for (const { prId, labels } of prs) {
         // Running sequentially to avoid rate limiting
         // eslint-disable-next-line no-await-in-loop
-        await github.syncLabels(labels, prNumber, opts.actor, opts.verbose, opts.dryRun, opts.check);
+        await github.syncLabels({
+          labels,
+          existingLabels: prIdLabelMap.get(prId),
+          prId,
+          ...opts.actor,
+        });
       }
     });
 

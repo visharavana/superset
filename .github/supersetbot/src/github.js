@@ -119,7 +119,13 @@ class Github {
     }
   }
 
-  async searchMergedPrIds(query = '', onlyUnlabeled = true, verbose = false, startPage = 0, numPages = 5) {
+  async searchMergedPRs({
+      query = '',
+      onlyUnlabeled = true,
+      verbose = false,
+      startPage = 0,
+      pages = 5,
+  }) {
     // look for PRs
     let q = `repo:${this.context.repo} is:merged ${query}`;
     if (onlyUnlabeled) {
@@ -128,22 +134,26 @@ class Github {
     if (verbose) {
       this.context.log(`Query: ${q}`);
     }
-    let prIds = [];
-    for (let i = 0; i < numPages; i++) {
+    let prs = [];
+    for (let i = 0; i < pages; i++) {
       if (verbose) {
-        this.context.log(`Fetching PRs to process page ${i + 1} out of ${numPages}`);
+        this.context.log(`Fetching PRs to process page ${i + 1} out of ${pages}`);
       }
       const data = await this.octokit.search.issuesAndPullRequests({
         q,
         per_page: 100,
-        page: 0,
+        page: i,
       });
-      prIds = [...prIds, ...data.data.items.map((pr) => pr.number)];
+      console.log(data.data.items[0]);
+      prs = [...prs, ...data.data.items];
     }
-    return prIds;
+    if (verbose) {
+      this.context.log(`Fetched ${prs.length}`);
+    }
+    return prs;
   }
 
-  async syncLabels(labels, prId, actor = null, verbose = false, dryRun = false, checkExisting = true) {
+  async syncLabels({labels, prId, actor = null, verbose = false, dryRun = false, checkExisting = true}) {
     if (verbose) {
       this.context.log(`[PR: ${prId}] - sync labels ${labels}`);
     }
