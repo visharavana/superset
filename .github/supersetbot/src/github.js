@@ -189,7 +189,7 @@ class Github {
     // Extract existing labels with the given prefixes
     const prefixes = ['🚢', '🍒', '🎯', '🏷️'];
     const existingPrefixLabels = existingLabels
-      .filter((label) => prefixes.some((s) => label.startsWith(s)));
+      .filter((label) => prefixes.some((s) => typeof(label) === 'string' && label.startsWith(s)));
 
     // Labels to add
     const labelsToAdd = labels.filter((label) => !existingPrefixLabels.includes(label));
