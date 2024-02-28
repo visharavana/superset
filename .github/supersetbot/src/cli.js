@@ -147,7 +147,7 @@ export default function getCLI(context) {
     .option('-f, --force-latest', 'Force the "latest" tag on the release')
     .option('-v, --verbose', 'Print more info')
     .action(function (preset) {
-      const opts = context.processOptions(this, ['repo']);
+      const opts = context.processOptions(this);
       opts.platform = opts.platform || ['linux/arm64'];
       const cmd = docker.getDockerCommand({ preset, ...opts });
       context.log(cmd);

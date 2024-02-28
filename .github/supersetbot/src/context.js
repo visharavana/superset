@@ -51,7 +51,7 @@ class Context {
     });
   }
 
-  processOptions(command, requiredOptions) {
+  processOptions(command, requiredOptions = []) {
     const raw = command.parent?.rawArgs;
     this.command = '???';
     if (raw) {
