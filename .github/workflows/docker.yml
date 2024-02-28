@@ -59,9 +59,16 @@ jobs:
           DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          supersetbot docker \
-            --preset ${{ matrix.build_preset }} \
-            --context "$EVENT" \
-            --context-ref "$RELEASE" $FORCE_LATEST \
-            --platform "linux/arm64" \
-            --platform "linux/amd64"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            supersetbot docker \
+              --preset ${{ matrix.build_preset }} \
+              --context "$EVENT" \
+              --context-ref "$RELEASE" $FORCE_LATEST \
+              --platform "linux/arm64" \
+              --platform "linux/amd64"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            supersetbot docker \
+              --preset ${{ matrix.build_preset }} \
+              --context "$EVENT" \
+              --context-ref "$RELEASE" $FORCE_LATEST
+          fi
