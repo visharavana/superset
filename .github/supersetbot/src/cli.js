@@ -105,7 +105,7 @@ export default function getCLI(context) {
         // eslint-disable-next-line no-await-in-loop
         await github.syncLabels({
           labels,
-          existingLabels: prIdLabelMap.get(prId),
+          existingLabels: prIdLabelMap.get(prId).map(l => l.name),
           prId,
           ...opts,
         });
