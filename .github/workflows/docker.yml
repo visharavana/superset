@@ -70,5 +70,6 @@ jobs:
             supersetbot docker \
               --preset ${{ matrix.build_preset }} \
               --context "$EVENT" \
-              --context-ref "$RELEASE" $FORCE_LATEST
+              --context-ref "$RELEASE" $FORCE_LATEST \
+              --platform "linux/amd64"
           fi

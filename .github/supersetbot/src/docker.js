@@ -115,7 +115,7 @@ export function getDockerCommand({
   }).map((tag) => `-t ${tag}`).join(' \\\n        ');
   const dockerArgs = isAuthenticated ? '--push' : '--load';
   const targetArgument = buildTarget ? `--target ${buildTarget}` : '';
-  const cacheRef = `${CACHE_REPO}:${pyVer}${platforms.length === 1 ? `-${platforms[0].replace('linux/', '').replace('64', '')}` : ''}`;
+  const cacheRef = `${CACHE_REPO}:${pyVer}`;
   const platformArg = `--platform ${platforms.join(',')}`;
   const cacheFromArg = `--cache-from=type=registry,ref=${cacheRef}`;
   const cacheToArg = isAuthenticated ? `--cache-to=type=registry,mode=max,ref=${cacheRef}` : '';
