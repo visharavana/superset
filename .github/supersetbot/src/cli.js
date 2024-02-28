@@ -68,13 +68,12 @@ export default function getCLI(context) {
         verbose: opts.verbose,
       });
       const labels = await wrapped(parseInt(prId, 10), opts.verbose, opts.excludeCherries);
-
       const github = new Github({ context, issueNumber: opts.issue });
       wrapped = context.commandWrapper({
         func: github.syncLabels,
         verbose: opts.verbose,
       });
-      await wrapped(labels, prId, opts.actor, opts.verbose, opts.dryRun);
+      await wrapped({labels, prId, actor: opts.actor, verbose: opts.verbose, dryRun: opts.dryRun});
     });
 
   program.command('release-label-prs')
