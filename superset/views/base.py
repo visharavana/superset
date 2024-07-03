@@ -63,6 +63,7 @@ from superset import (
     app as superset_app,
     appbuilder,
     conf,
+    db,
     get_feature_flags,
     is_feature_enabled,
     security_manager,
@@ -419,6 +420,7 @@ def cached_common_bootstrap_data(  # pylint: disable=unused-argument
         "locale": language,
         "language_pack": get_language_pack(language),
         "d3_format": conf.get("D3_FORMAT"),
+        "d3_time_format": conf.get("D3_TIME_FORMAT"),
         "currencies": conf.get("CURRENCIES"),
         "feature_flags": get_feature_flags(),
         "extra_sequential_color_schemes": conf["EXTRA_SEQUENTIAL_COLOR_SCHEMES"],
@@ -697,7 +699,7 @@ class DeleteMixin:  # pylint: disable=too-few-public-methods
                 if view_menu:
                     security_manager.get_session.delete(view_menu)
 
-                security_manager.get_session.commit()
+                db.session.commit()  # pylint: disable=consider-using-transaction
 
             flash(*self.datamodel.message)
             self.update_redirect()
